@@ -1,9 +1,5 @@
 template:
   - sensor:
-    - name: sun_elevation
-      state: "{{ state_attr('sun.sun', 'elevation') }}"
-      unique_id: 20220315c0b35ff264f5d00dfbcf135fd560e375
-      unit_of_measurement: '°'
     - name: sun_colour_temp
       state: "{{ [([((1000000/(4791.67 - 3290.66/(1 + 0.222 * ([([0,state_attr('sun.sun', 'elevation')]|max),90]|min**0.81))))|int),250]|max),454]|min}}"
       unique_id: 2022031530eeb1d67b44fef54447eb835a17b4ca
