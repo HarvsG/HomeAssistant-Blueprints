@@ -62,7 +62,7 @@ action:
           cluster_id: 6
           command: "on"
       timeout:
-        seconds: 10
+        seconds: 1
 
   # double click
   - conditions:
@@ -81,7 +81,7 @@ action:
           cluster_id: 6
           command: "off"
       timeout:
-        seconds: 10
+        seconds: 1
 
   # long click
   - conditions:
@@ -100,4 +100,4 @@ action:
           cluster_id: 8
           command: "move_with_on_off"
       timeout:
-        seconds: 10
+        seconds: 1
