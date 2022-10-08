@@ -5,7 +5,7 @@ blueprint:
   input:
     target_lights:
       name: Lights
-      description:  The primary lights to be controlled
+      description:  The lights to be controlled
       selector:
           entity:
             domain: light
