@@ -79,6 +79,7 @@ action:
           - service: light.turn_on
             data:
               color_temp: "{{color_temp}}"
+              transition: 0
             target:
               entity_id: "{{trigger.entity_id}}"
           - delay:
