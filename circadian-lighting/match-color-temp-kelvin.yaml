@@ -18,7 +18,7 @@ blueprint:
       default: 4000
       selector:
         number:
-          min: 1400
+          min: 1500
           max: 4500
     max_color_temp:
       name: Warmest Color Temperature
@@ -26,7 +26,7 @@ blueprint:
       default: 2202
       selector:
         number:
-          min: 1400
+          min: 1500
           max: 4500
     brightness_action:
       name: Brightness
