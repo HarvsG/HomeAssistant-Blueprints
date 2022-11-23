@@ -51,7 +51,7 @@ variables:
   min_color_temp: !input min_color_temp
   max_color_temp: !input max_color_temp
   color_temp: '{{ [([(((4791.67 - 3290.66/(1 + 0.222 * ([([0,state_attr(''sun.sun'',
-    ''elevation'')]|max),90]|min**0.81))))|int),min_color_temp]|max),max_color_temp]|min}}'
+    ''elevation'')]|max),90]|min**0.81))))|int),max_color_temp]|max),min_color_temp]|min}}'
 trigger:
 - platform: state
   entity_id: !input target_lights
