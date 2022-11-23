@@ -17,17 +17,17 @@ blueprint:
       description: The coolest color your bulbs will be set to
       default: 4000
       selector:
-        color_temp:
-          min_kelvin: 1500
-          max_kelvin: 8000
+        number:
+          min: 1500
+          max: 8000
     max_color_temp:
       name: Warmest Color Temperature
       description: The warmest color your bulbs will be set to
       default: 2202
       selector:
-        color_temp:
-          min_kelvin: 1500
-          max_kelvin: 8000
+        min:
+          min: 1500
+          max: 8000
     brightness_action:
       name: Brightness
       description: When a device turns on its color temperature will be set, this
