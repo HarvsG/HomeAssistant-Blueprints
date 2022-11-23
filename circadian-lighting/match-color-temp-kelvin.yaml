@@ -25,7 +25,7 @@ blueprint:
       description: The warmest color your bulbs will be set to
       default: 2202
       selector:
-        min:
+        number:
           min: 1500
           max: 8000
     brightness_action:
