@@ -1,0 +1,66 @@
+blueprint:
+  name: Toggle Scenes
+  description: Trigger this automation from another automation using This will allow you to use a single trigger to toggle a scene on or off. A timeout variable is given, after which the trigger will activate the scene irrespective of the state of the last toggle.
+  domain: automation
+  input:
+    scene_input:
+      name: Scene to be toggled
+      description: This is the scene that will be turned on and off
+      selector:
+        entity:
+          domain: scene
+    no_scene_wait:
+      name: Timeout
+      description: The time after which the original scene will be activated even if the next toggle state would have been scene off
+      default: 240
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: minutes
+variables:
+  scene_entity: !input scene_input
+  scene_store_name: "{{scene_entity.split('.')[1] + '_store_previous_state'}}"
+  scene_store_entity: "{{'scene.' + scene_store_name}}"
+  time_out_seconds: !input no_scene_wait
+  time_out: "{{time_out_seconds*60}}"
+trigger:
+  - platform: event
+    event_type: scene_toggle
+    event_data:
+      entity_id: '{{scene_entity}}'
+action:
+    if:
+      - condition: template
+        value_template: >-
+    
+          {{(states(scene_store_entity) == 'unknown') or (0 <
+          as_timestamp(states(scene_store_entity),0) -
+          as_timestamp(states(scene_entity),0)) or (as_timestamp(now()) -
+          as_timestamp(states(scene_entity),0) > time_out)}}
+        alias: >-
+          If film_before activated more recently than film mode or if film mode has
+          not been activated for more than 4 hours
+    then:
+      - service: scene.create
+        data:
+          scene_id: '{{scene_store_name}}'
+          snapshot_entities: "{{ state_attr(scene_entity, 'entity_id') }}"
+      - if:
+          - condition: template
+            value_template: "{{(states(scene_store_entity) == 'unknown')}}"
+            alias: If scene before has never been activated before
+        then:
+          - service: scene.turn_on
+            data: {}
+            target:
+              entity_id: '{{scene_store_entity}}'
+      - service: scene.turn_on
+        target:
+          entity_id: '{{scene_entity}}'
+        metadata: {}
+    else:
+      - service: scene.turn_on
+        data: {}
+        target:
+          entity_id: '{{scene_store_entity}}'
