@@ -33,17 +33,17 @@ blueprint:
 mode: single
 max_exceeded: silent
 trigger:
-- platform: event
-  event_type: zha_event
-  event_data:
-    device_id: !input 'shortcut_button'
+  - platform: event
+    event_type: zha_event
+    event_data:
+      device_id: !input 'shortcut_button'
 action:
-- variables:
-  command: '{{ trigger.event.data.command }}'
-  cluster_id: '{{ trigger.event.data.cluster_id }}'
-  endpoint_id: '{{ trigger.event.data.endpoint_id }}'
-  args: '{{ trigger.event.data.args }}'
-- choose:
+  - variables:
+    command: '{{ trigger.event.data.command }}'
+    cluster_id: '{{ trigger.event.data.cluster_id }}'
+    endpoint_id: '{{ trigger.event.data.endpoint_id }}'
+    args: '{{ trigger.event.data.args }}'
+  - choose:
 
   # short click
   - conditions:
