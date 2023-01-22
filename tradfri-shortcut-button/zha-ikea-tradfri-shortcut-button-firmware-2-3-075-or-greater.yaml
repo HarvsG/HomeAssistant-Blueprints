@@ -39,10 +39,10 @@ trigger:
     device_id: !input 'shortcut_button'
 action:
 - variables:
-    command: '{{ trigger.event.data.command }}'
-    cluster_id: '{{ trigger.event.data.cluster_id }}'
-    endpoint_id: '{{ trigger.event.data.endpoint_id }}'
-    args: '{{ trigger.event.data.args }}'
+  command: '{{ trigger.event.data.command }}'
+  cluster_id: '{{ trigger.event.data.cluster_id }}'
+  endpoint_id: '{{ trigger.event.data.endpoint_id }}'
+  args: '{{ trigger.event.data.args }}'
 - choose:
 
   # short click
