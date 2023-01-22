@@ -36,68 +36,50 @@ trigger:
   - platform: event
     event_type: zha_event
     event_data:
-      device_id: !input 'shortcut_button'
+      device_id: shortcut_button
 action:
   - variables:
-    command: '{{ trigger.event.data.command }}'
-    cluster_id: '{{ trigger.event.data.cluster_id }}'
-    endpoint_id: '{{ trigger.event.data.endpoint_id }}'
-    args: '{{ trigger.event.data.args }}'
-  - choose:
-
-  # short click
+      command: "{{ trigger.event.data.command }}"
+      cluster_id: "{{ trigger.event.data.cluster_id }}"
+      endpoint_id: "{{ trigger.event.data.endpoint_id }}"
+      args: "{{ trigger.event.data.args }}"
+  - choose: null
   - conditions:
-    - '{{ endpoint_id == 1 }}'
-    - '{{ cluster_id == 6 }}'
-    - '{{ command == ''on'' }}'
+      - "{{ endpoint_id == 1 }}"
+      - "{{ cluster_id == 6 }}"
+      - "{{ command == 'on' }}"
     sequence:
-    - choose:
-      default: !input 'button_short'
-    - wait_for_trigger:
-      - platform: event
-        event_type: zha_event
-        event_data:
-          device_id: !input 'shortcut_button'
-          endpoint_id: 1
-          cluster_id: 6
-          command: "on"
-      timeout:
-        seconds: 1
-
-  # double click
+      - wait_for_trigger:
+          - platform: event
+            event_type: zha_event
+            event_data:
+              device_id: shortcut_button
+              endpoint_id: 1
+              cluster_id: 6
+              command: on
+        timeout:
+          milliseconds: 600
+        continue_on_timeout: true
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ not wait.trigger }}"
+            sequence: button_short
+        default: button_double
   - conditions:
-    - '{{ endpoint_id == 1 }}'
-    - '{{ cluster_id == 6 }}'
-    - '{{ command == ''off'' }}'
+      - "{{ endpoint_id == 1 }}"
+      - "{{ cluster_id == 8 }}"
+      - "{{ command == 'move_with_on_off' }}"
     sequence:
-    - choose:
-      default: !input 'button_double'
-    - wait_for_trigger:
-      - platform: event
-        event_type: zha_event
-        event_data:
-          device_id: !input 'shortcut_button'
-          endpoint_id: 1
-          cluster_id: 6
-          command: "off"
-      timeout:
-        seconds: 1
-
-  # long click
-  - conditions:
-    - '{{ endpoint_id == 1 }}'
-    - '{{ cluster_id == 8 }}'
-    - '{{ command == ''move_with_on_off'' }}'
-    sequence:
-    - choose:
-      default: !input 'button_long'
-    - wait_for_trigger:
-      - platform: event
-        event_type: zha_event
-        event_data:
-          device_id: !input 'shortcut_button'
-          endpoint_id: 1
-          cluster_id: 8
-          command: "move_with_on_off"
-      timeout:
-        seconds: 1
+      - choose: null
+        default: button_long
+      - wait_for_trigger:
+          - platform: event
+            event_type: zha_event
+            event_data:
+              device_id: shortcut_button
+              endpoint_id: 1
+              cluster_id: 8
+              command: stop
+        timeout:
+          seconds: 7
