@@ -50,7 +50,7 @@ action:
           - "{{ command == 'on' }}"
         sequence:
           - choose:
-              default:!input button_short
+              default: !input button_short
           - wait_for_trigger:
               - platform: event
                 event_type: zha_event
@@ -67,7 +67,7 @@ action:
           - "{{ command == 'off' }}"
         sequence:
           - choose:
-              default:!input button_double
+              default: !input button_double
           - wait_for_trigger:
               - platform: event
                 event_type: zha_event
