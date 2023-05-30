@@ -1,0 +1,33 @@
+alias: Tailscale On leaving WiFi
+description: ""
+trigger:
+  - platform: state
+    entity_id:
+      - device_tracker.pixel_3a
+    to: not_home
+condition: []
+action:
+  - service: notify.mobile_app_pixel_3a
+    data:
+      message: command_broadcast_intent
+      data:
+        intent_package_name: com.tailscale.ipn
+        intent_action: com.tailscale.ipn.CONNECT_VPN
+mode: single
+---
+alias: Tailscale off on arriving home
+description: ""
+trigger:
+  - platform: state
+    entity_id:
+      - device_tracker.pixel_3a
+    to: home
+condition: []
+action:
+  - service: notify.mobile_app_pixel_3a
+    data:
+      message: command_broadcast_intent
+      data:
+        intent_package_name: com.tailscale.ipn
+        intent_action: com.tailscale.ipn.DISCONNECT_VPN
+mode: single
