@@ -1,33 +1,60 @@
-alias: Tailscale On leaving WiFi
-description: ""
+alias: "[phone] Tailscale when away from home wifi"
+description: >-
+  This automation enables tailscale when away from home wifi and disables it
+  when at home.
 trigger:
   - platform: state
     entity_id:
       - device_tracker.pixel_3a
     to: not_home
-condition: []
-action:
-  - service: notify.mobile_app_pixel_3a
-    data:
-      message: command_broadcast_intent
-      data:
-        intent_package_name: com.tailscale.ipn
-        intent_action: com.tailscale.ipn.CONNECT_VPN
-mode: single
----
-alias: Tailscale off on arriving home
-description: ""
-trigger:
+    id: away
   - platform: state
     entity_id:
       - device_tracker.pixel_3a
+    from: not_home
     to: home
+    id: home
 condition: []
 action:
-  - service: notify.mobile_app_pixel_3a
-    data:
-      message: command_broadcast_intent
-      data:
-        intent_package_name: com.tailscale.ipn
-        intent_action: com.tailscale.ipn.DISCONNECT_VPN
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: away
+        sequence:
+          - service: notify.mobile_app_pixel_3a
+            data:
+              message: command_launch_app
+              data:
+                intent_package_name: com.tailscale.ipn
+            alias: Ensure App running
+          - service: notify.mobile_app_pixel_3a
+            data:
+              message: command_broadcast_intent
+              data:
+                intent_package_name: com.tailscale.ipn
+                intent_action: com.tailscale.ipn.CONNECT_VPN
+            alias: Enable VPN
+      - conditions:
+          - condition: trigger
+            id: home
+        sequence:
+          - service: notify.mobile_app_pixel_3a
+            data:
+              message: command_broadcast_intent
+              data:
+                intent_package_name: com.tailscale.ipn
+                intent_action: com.tailscale.ipn.DISCONNECT_VPN
+            alias: Disconnect tailscale
+          - delay:
+              hours: 0
+              minutes: 0
+              seconds: 5
+              milliseconds: 0
+          - service: notify.mobile_app_pixel_3a
+            data:
+              message: command_broadcast_intent
+              data:
+                intent_package_name: com.tailscale.ipn
+                intent_action: com.tailscale.ipn.DISCONNECT_VPN
+            alias: Ensure tailscale disconnected
 mode: single
