@@ -25,7 +25,7 @@ action:
             data:
               message: command_launch_app
               data:
-                intent_package_name: com.tailscale.ipn
+                package_name: com.tailscale.ipn
             alias: Ensure App running
           - service: notify.mobile_app_pixel_3a
             data:
