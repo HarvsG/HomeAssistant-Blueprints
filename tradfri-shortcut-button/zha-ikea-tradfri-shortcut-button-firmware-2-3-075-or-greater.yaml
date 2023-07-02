@@ -1,6 +1,7 @@
 blueprint:
   name: ZHA - IKEA Tradfri Shortcut button
   description: Control anything with the ikea shortcut button
+  source_url: https://https://community.home-assistant.io/t/zha-ikea-tradfri-shortcut-button-firmware-2-3-075-or-greater/402565
   domain: automation
   input:
     shortcut_button:
@@ -29,14 +30,35 @@ blueprint:
       default: []
       selector:
         action: {}
-  source_url: https://community.home-assistant.io/t/draft-zha-ikea-tradfri-shortcut-button-firmware-2-0-80-or-greater/402565
-mode: single
-max_exceeded: silent
+    button_release:
+      name: Release Long Click
+      description: 'Choose action(s) (if any) when releasing long press. This will run in a separate call of the automation so in "single" mode it may be suppressed by the long-press action if that takes some time. It cannot easily be used to stop a long-press action, for that - use mode: "restart instead" '
+      default: []
+      selector:
+        action: {}
+    automation_mode:
+      name: Automation Mode
+      description: 'The [mode](https://www.home-assistant.io/docs/automation/modes/) for this automation. Default is "single" - further actions are blocked whilst the automation is running. Choose "resart" if you want the long-press action to stop on release.'
+      default: single
+      selector:
+        select:
+          options:
+            - single
+            - restart
+            - queued
+            - parallel
+mode: !input 'automation_mode'
 trigger:
-- platform: event
-  event_type: zha_event
-  event_data:
-    device_id: !input 'shortcut_button'
+  - platform: event
+    event_type: zha_event
+    event_data:
+      cluster_id: 6
+      device_id: !input 'shortcut_button'
+  - platform: event
+    event_type: zha_event
+    event_data:
+      cluster_id: 8
+      device_id: !input 'shortcut_button'
 action:
 - variables:
     command: '{{ trigger.event.data.command }}'
@@ -51,16 +73,6 @@ action:
     sequence:
     - choose:
       default: !input 'button_short'
-    - wait_for_trigger:
-      - platform: event
-        event_type: zha_event
-        event_data:
-          device_id: !input 'shortcut_button'
-          endpoint_id: 1
-          cluster_id: 6
-          command: 'on'
-      timeout:
-        seconds: 1
   - conditions:
     - '{{ endpoint_id == 1 }}'
     - '{{ cluster_id == 6 }}'
@@ -68,16 +80,6 @@ action:
     sequence:
     - choose:
       default: !input 'button_double'
-    - wait_for_trigger:
-      - platform: event
-        event_type: zha_event
-        event_data:
-          device_id: !input 'shortcut_button'
-          endpoint_id: 1
-          cluster_id: 6
-          command: 'off'
-      timeout:
-        seconds: 1
   - conditions:
     - '{{ endpoint_id == 1 }}'
     - '{{ cluster_id == 8 }}'
@@ -85,13 +87,10 @@ action:
     sequence:
     - choose:
       default: !input 'button_long'
-    - wait_for_trigger:
-      - platform: event
-        event_type: zha_event
-        event_data:
-          device_id: !input 'shortcut_button'
-          endpoint_id: 1
-          cluster_id: 8
-          command: 'move_with_on_off'
-      timeout:
-        seconds: 1
+  - conditions:
+    - '{{ endpoint_id == 1 }}'
+    - '{{ cluster_id == 8 }}'
+    - '{{ command == ''stop_with_on_off'' }}'
+    sequence:
+    - choose:
+      default: !input 'button_release'
