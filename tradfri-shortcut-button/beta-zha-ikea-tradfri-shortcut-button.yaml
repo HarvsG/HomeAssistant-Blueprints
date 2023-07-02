@@ -1,6 +1,7 @@
 blueprint:
   name: BETA ZHA - IKEA Tradfri Shortcut button
   description: Control anything with the ikea shortcut button
+  source_url: https://https://community.home-assistant.io/t/zha-ikea-tradfri-shortcut-button-firmware-2-3-075-or-greater/402565
   domain: automation
   input:
     shortcut_button:
@@ -35,9 +36,17 @@ blueprint:
       default: []
       selector:
         action: {}
-  source_url: https://https://community.home-assistant.io/t/zha-ikea-tradfri-shortcut-button-firmware-2-3-075-or-greater/402565
-mode: restart
-max_exceeded: silent
+    automation_mode:
+      name: Automation Mode
+      description: 'The mode for this automation. Default is "single" - further actions are blocked whilst the automation is running. Choose "resart" if you want the long-press action to stop on release. https://www.home-assistant.io/docs/automation/modes/'
+      selector:
+        select:
+          options:
+            - single
+            - restart
+            - queued
+            - parallel
+mode: !input 'automation_mode'
 trigger:
 - platform: event
   event_type: zha_event
