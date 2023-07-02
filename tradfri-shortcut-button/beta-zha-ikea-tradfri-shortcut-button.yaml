@@ -36,7 +36,7 @@ blueprint:
       selector:
         action: {}
   source_url: https://https://community.home-assistant.io/t/zha-ikea-tradfri-shortcut-button-firmware-2-3-075-or-greater/402565
-mode: single
+mode: restart
 max_exceeded: silent
 trigger:
 - platform: event
