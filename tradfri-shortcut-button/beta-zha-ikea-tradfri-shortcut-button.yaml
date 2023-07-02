@@ -32,13 +32,13 @@ blueprint:
         action: {}
     button_release:
       name: Release Long Click
-      description: 'Choose action(s) (if any) when releasing long press:'
+      description: 'Choose action(s) (if any) when releasing long press. This will run in a separate call of the automation so in "single" mode it may be suppressed by the long-press action if that takes some time. It cannot easily be used to stop a long-press action, for that - use mode: "restart instead" '
       default: []
       selector:
         action: {}
     automation_mode:
       name: Automation Mode
-      description: 'The mode for this automation. Default is "single" - further actions are blocked whilst the automation is running. Choose "resart" if you want the long-press action to stop on release. https://www.home-assistant.io/docs/automation/modes/'
+      description: 'The [mode](https://www.home-assistant.io/docs/automation/modes/) for this automation. Default is "single" - further actions are blocked whilst the automation is running. Choose "resart" if you want the long-press action to stop on release.'
       default: single
       selector:
         select:
