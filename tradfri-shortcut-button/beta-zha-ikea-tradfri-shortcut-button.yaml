@@ -39,6 +39,7 @@ blueprint:
     automation_mode:
       name: Automation Mode
       description: 'The mode for this automation. Default is "single" - further actions are blocked whilst the automation is running. Choose "resart" if you want the long-press action to stop on release. https://www.home-assistant.io/docs/automation/modes/'
+      default: single
       selector:
         select:
           options:
@@ -48,10 +49,16 @@ blueprint:
             - parallel
 mode: !input 'automation_mode'
 trigger:
-- platform: event
-  event_type: zha_event
-  event_data:
-    device_id: !input 'shortcut_button'
+  - platform: event
+    event_type: zha_event
+    event_data:
+      cluster_id: 6
+      device_id: !input 'shortcut_button'
+  - platform: event
+    event_type: zha_event
+    event_data:
+      cluster_id: 8
+      device_id: !input 'shortcut_button'
 action:
 - variables:
     command: '{{ trigger.event.data.command }}'
