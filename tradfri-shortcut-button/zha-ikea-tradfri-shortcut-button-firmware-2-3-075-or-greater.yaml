@@ -48,6 +48,7 @@ blueprint:
             - queued
             - parallel
 mode: !input 'automation_mode'
+max_exceeded: silent
 trigger:
   - platform: event
     event_type: zha_event
