@@ -20,6 +20,7 @@ blueprint:
         color_temp:
           min: 1500
           max: 7000
+          unit: kelvin
     max_color_temp:
       name: Warmest Color Temperature
       description: The most yellow color your bulbs will be set to
@@ -28,6 +29,7 @@ blueprint:
         color_temp:
           min: 1500
           max: 7000
+          unit: kelvin
     brightness_action:
       name: Brightness
       description: When a device turns on its color temperature will be set, this
