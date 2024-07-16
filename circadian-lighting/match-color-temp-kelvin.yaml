@@ -18,16 +18,16 @@ blueprint:
       default: 4000
       selector:
         color_temp:
-          min: 1500
-          max: 4500
+          min: 2000
+          max: 6500
     max_color_temp:
       name: Warmest Color Temperature
       description: The most yellow color your bulbs will be set to
       default: 2202
       selector:
         color_temp:
-          min: 1500
-          max: 4500
+          min: 2000
+          max: 6500
     brightness_action:
       name: Brightness
       description: When a device turns on its color temperature will be set, this
