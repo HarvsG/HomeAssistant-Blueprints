@@ -14,7 +14,7 @@ blueprint:
           multiple: true
     min_color_temp:
       name: Coolest Color Temperature
-      description: The coolest color your bulbs will be set to
+      description: The most blue color your bulbs will be set to
       default: 4000
       selector:
         color_temp:
@@ -22,7 +22,7 @@ blueprint:
           max: 4500
     max_color_temp:
       name: Warmest Color Temperature
-      description: The warmest color your bulbs will be set to
+      description: The most yellow color your bulbs will be set to
       default: 2202
       selector:
         color_temp:
