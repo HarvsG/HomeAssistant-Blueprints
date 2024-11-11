@@ -12,7 +12,7 @@ blueprint:
           domain: bayesian
 variables:
   bayesian_binary_sensor: !input bayesian_binary_sensor
-binary_sensor:
+sensor:
   state: >
     {{ state_attr(bayesian_binary_sensor, 'probability') | float }}
   availability: "{{ states(bayesian_binary_sensor) not in ('unknown', 'unavailable') }}"
