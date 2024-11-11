@@ -2,7 +2,7 @@ blueprint:
   name: Bayesian Numeric Probability
   description: Creates a sensor which holds the numeric probability value from a bayesian binary_sensor
   domain: bayesian
-  source_url: 
+  source_url: https://gist.githubusercontent.com/HarvsG/6810cb930cee094a902578577eb98796/raw/6305d13cf26b14ccced5ad093ae51cb5cbbe7027/bayesian_probability_sensor.yaml
   input:
     bayesian_binary_sensor:
       name: Bayesian sensor
