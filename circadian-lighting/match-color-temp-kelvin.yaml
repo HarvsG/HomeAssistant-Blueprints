@@ -79,7 +79,7 @@ action:
     sequence:
     - service: light.turn_on
       data:
-        kelvin: '{{color_temp}}'
+        color_temp_kelvin: '{{color_temp}}'
       target:
         entity_id: '{{trigger.entity_id}}'
     - delay:
@@ -96,7 +96,7 @@ action:
     sequence:
     - service: light.turn_on
       data:
-        kelvin: '{{color_temp}}'
+        color_temp_kelvin: '{{color_temp}}'
         transition: 5
       target:
         entity_id: '{{target_on_lights}}'
