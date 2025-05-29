@@ -1,0 +1,170 @@
+alias: Run Vacuum cleaner if appropriate
+description: >-
+  This script will perform a number of checks and choosing the appropriate
+  cleaning mode (vacuuming with or without mopping) before then starting the
+  clean. 
+
+  Checks include ensuring the hour is sociable and that guests are not staying
+  and that a clean is not already in progress.
+fields:
+  rooms:
+    selector:
+      area:
+        multiple: true
+    name: Rooms to clean
+    description: >-
+      Select the room or rooms to be cleaned. If no rooms are specified all
+      rooms will be cleaned.
+    example: "[\"Kitchen\", \"Bedroom\"]"
+sequence:
+  - condition: state
+    entity_id: input_boolean.manual_mode
+    state: "off"
+  - condition: device
+    device_id: eb2e40c6ea8b4dcfc0c4c2adfe7c00a9
+    domain: vacuum
+    entity_id: 685dc4ca0c5dfe98cf53914ef195f498
+    type: is_docked
+  - condition: state
+    entity_id: binary_sensor.everyone_sleeping
+    state: "off"
+  - condition: time
+    after: "08:00:00"
+    before: "21:40:00"
+  - if:
+      - condition: state
+        entity_id: input_boolean.guest_mode
+        state: "on"
+    then:
+      - action: notify.mobile_app_pixel_8
+        metadata: {}
+        data:
+          title: Cleaning not done because of guests
+          message: The Robovac did not clean because guest mode was on
+      - action: notify.mobile_app_pixel_9a
+        metadata: {}
+        data:
+          title: Cleaning not done because of guests
+          message: The Robovac did not clean because guest mode was on
+      - stop: Guests mode is on
+    alias: Notify and cancel is guest mode is on
+  - alias: Choose Mop or Vac map based on water box
+    if:
+      - condition: state
+        entity_id: binary_sensor.q5_pro_water_box_attached
+        state: "on"
+    then:
+      - device_id: eb2e40c6ea8b4dcfc0c4c2adfe7c00a9
+        domain: select
+        entity_id: 8851ed04979630991023c9eb217211cd
+        type: select_option
+        option: Home Mop
+      - wait_for_trigger:
+          - trigger: state
+            entity_id:
+              - select.q5_pro_selected_map
+            to: Home Mop
+        continue_on_timeout: true
+        timeout:
+          hours: 0
+          minutes: 0
+          seconds: 2
+          milliseconds: 0
+      - condition: state
+        entity_id: select.q5_pro_selected_map
+        state: Home Mop
+    else:
+      - device_id: eb2e40c6ea8b4dcfc0c4c2adfe7c00a9
+        domain: select
+        entity_id: 8851ed04979630991023c9eb217211cd
+        type: select_option
+        option: Home Vacuum
+  - alias: Perform targeted room cleaning if rooms specified
+    if:
+      - condition: template
+        value_template: |
+          {{ rooms is defined and rooms is not none and rooms | length > 0 }}
+        alias: If at least 1 room specified
+    then:
+      - alias: Cleaned & normalised room list
+        variables:
+          cleaned_rooms: |
+            {% set room_map = {
+              'Kitchen': 'Living Room',
+              'Living Room': 'Living Room',
+              'Bathroom': 'Bathroom',
+              'Bedroom': 'Bedroom',
+              'Hallway': 'Hallway',
+              'Snug': 'Snug',
+              'Study': 'Study'
+            } %}
+            {% set input_rooms = rooms | map('title') | list %}
+            {{ input_rooms
+                | reject('equalto', 'Garden')
+                | map('replace', 'Kitchen', 'Living Room')
+                | select('in', room_map.values() | list)
+                | list }}
+      - alias: Get current map name
+        variables:
+          selected_map: "{{ states('select.q5_pro_selected_map') }}"
+      - alias: Fetch maps from Roborock
+        target:
+          entity_id: vacuum.q5_pro
+        response_variable: roborock_maps_response
+        action: roborock.get_maps
+        data: {}
+      - alias: Extract segment IDs from map
+        variables:
+          segments: >
+            {% set maps = roborock_maps_response['vacuum.q5_pro']['maps'] %} {%
+            set current_map = maps | selectattr('name', 'equalto', selected_map)
+            | list | first %} {% set room_lookup = current_map.rooms %} {% set
+            matched = namespace(ids=[]) %} {% for id, name in
+            room_lookup.items() %} {% if name in cleaned_rooms %}
+              {% set matched.ids = matched.ids + [id | int] %}
+            {% endif %} {% endfor %} {{ matched.ids }}
+      - alias: Send targeted clean command
+        choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ segments | length > 0 }}"
+                alias: If at least 1 segment
+            sequence:
+              - data:
+                  command: app_segment_clean
+                  params:
+                    - segments: "{{ segments }}"
+                      repeat: 1
+                action: vacuum.send_command
+                target:
+                  device_id: eb2e40c6ea8b4dcfc0c4c2adfe7c00a9
+    else:
+      - condition:
+          - condition: template
+            value_template: >
+              {{ (as_timestamp(now()) -
+              as_timestamp(states('sensor.q5_pro_last_clean_end'))) > 28800 }}
+        alias: More than 8 hours since last clean
+        enabled: false
+      - action: vacuum.start
+        metadata: {}
+        data: {}
+        target:
+          device_id: eb2e40c6ea8b4dcfc0c4c2adfe7c00a9
+  - wait_for_trigger:
+      - type: not_running
+        device_id: eb2e40c6ea8b4dcfc0c4c2adfe7c00a9
+        entity_id: 3ffbcc2611e8fd93d3141a037ab7755d
+        domain: binary_sensor
+        trigger: device
+    continue_on_timeout: true
+    timeout:
+      hours: 1
+      minutes: 0
+      seconds: 0
+      milliseconds: 0
+  - action: notify.mobile_app_pixel_8
+    metadata: {}
+    data:
+      title: Roborock stopped cleaning
+      message: Roborock is showing as {{states('vacuum.q5_pro')}}
