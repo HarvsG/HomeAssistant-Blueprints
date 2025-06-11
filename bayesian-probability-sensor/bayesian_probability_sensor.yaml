@@ -1,18 +1,18 @@
+#/config/blueprints/template/bayesian_probability_sensor.yaml
 blueprint:
-  name: Bayesian Numeric Probability
-  description: Creates a sensor which holds the numeric probability value from a bayesian binary_sensor
+  name: Numeric probability from a Bayesian sensor
+  description: Creates a sensor which holds the probability of a Bayesian binary sensor
   domain: template
-  source_url: https://gist.githubusercontent.com/HarvsG/6810cb930cee094a902578577eb98796/raw/6305d13cf26b14ccced5ad093ae51cb5cbbe7027/bayesian_probability_sensor.yaml
+  source_url: http://example.com # used for updates
   input:
-    bayesian_binary_sensor:
-      name: Bayesian sensor
-      description: The binary_sensor to have its probability monitored
+    original_entity:
+      name: Bayesian binary sensor
+      description: The Bayesian binary sensor to read the probability from
       selector:
         entity:
           domain: bayesian
 variables:
-  bayesian_binary_sensor: !input bayesian_binary_sensor
+  original_entity: !input original_entity
 sensor:
-  state: >
-    {{ state_attr(bayesian_binary_sensor, 'probability') | float }}
-  availability: "{{ states(bayesian_binary_sensor) not in ('unknown', 'unavailable') }}"
+  state: "{{ state_attr(original_entity,'probability') }}"
+  availability: "{{ states(original_entity) not in ('unknown', 'unavailable') }}"
