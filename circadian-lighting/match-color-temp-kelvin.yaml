@@ -1,8 +1,8 @@
 blueprint:
   name: Match Outside Colour Temperature Kelvin
-  description: When a light turns on or the sun elevation changes match the outside
+  description: When a light turns on or the sun elevation changes, match the outside
     colour temperature. It will apply to any bulb that supports color temperature.
-    It triggers whenever a bulb turns on, on sun elevation changes and every 5 minutes.
+    It triggers; whenever a bulb turns on, on sun elevation changes and every 5 minutes.
   domain: automation
   input:
     target_lights:
