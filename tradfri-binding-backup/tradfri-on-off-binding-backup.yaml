@@ -9,7 +9,8 @@ blueprint:
     devices - offering some redundancy
     this does not (yet) support backup dimming
     by default it then calls a script which can be
-    downloaded at which will try to repair the binding.
+    downloaded at https://gist.github.com/HarvsG/b1508cc130d514ef690418a612ee9d47
+    which will try to repair the binding.
   domain: automation
   input:
     remote:
