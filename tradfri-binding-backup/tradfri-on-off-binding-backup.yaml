@@ -31,7 +31,7 @@ blueprint:
       name: Post-action
       description: Optional service call to run after main actions and only if
       default:
-        - action: script.wip_heal_zha_binding
+        - action: script.heal_ikea_zha_bindings
           metadata: {}
           data:
             bulb_field: "{{ unbound_lights | first }}"
