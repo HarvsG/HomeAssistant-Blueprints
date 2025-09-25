@@ -1,0 +1,71 @@
+blueprint:
+  name: Heal IKEA ZHA Bindings
+  description: 'Requires the ZHA Toolkit custom component available on HACS. 
+  Removes all existing ZHA bindings between a light switch and a bulb, then
+  attempts to re-establish a direct binding between them to resolve
+  communication issues.'
+  domain: script
+  author: HarvsG
+mode: single
+fields:
+  lightswitch_field:
+    selector:
+      device: {}
+    default: 6029af46ec876a36e3b01d65f8649478
+    required: true
+    name: Lightswitch Device ID
+    description: The tradfri on/off switch or lightswitch device ID
+  bulb_field:
+    selector:
+      entity: {}
+    name: Bulb
+    default: light.study_lamp
+    required: true
+    description: The entity_id of the light which must not be a group
+sequence:
+  - action: zha_toolkit.binds_remove_all
+    data:
+      ieee: "{{lightswitch_field}}"
+      event_success: unbind_success
+      command_data: "{{bulb_field}}"
+      event_fail: unbind_failure
+      event_done: unbind_done
+    response_variable: unbind_response
+  - wait_for_trigger:
+      - trigger: event
+        event_type: unbind_done
+    enabled: false
+  - variables:
+      removed: "{{unbind_response.result.removed}}"
+      errors: "{{unbind_response.errors}}"
+      target_device_id: "{{device_id(unbind_response.command_data)}}"
+      target_device_iee: >-
+        {{ device_attr(device_id(unbind_response.command_data), 'identifiers') |
+        list | first | last }}
+      skipped_ieees: >-
+        {{unbind_response.result.skipped | map(attribute='dst') |
+        map(attribute='dst_ieee') | list | unique | list}}
+  - condition: template
+    value_template: "{{ target_device_ieee not in skipped_ieees }}"
+  - action: zha_toolkit.bind_ieee
+    data:
+      ieee: "{{lightswitch_field}}"
+      command_data: "{{bulb_field}}"
+      event_success: bind_success
+      event_fail: bind_failure
+      tries: 5
+      event_done: bind_done
+    response_variable: bind_response
+    enabled: true
+  - wait_for_trigger:
+      - trigger: event
+        event_type: bind_done
+    enabled: false
+  - action: persistent_notification.create
+    metadata: {}
+    data:
+      notification_id: bind_heal_{{unbind_response.ieee}}
+      title: Zigbee binding heal
+      message: >-
+        The heal was attempted between {{device_name(lightswitch_field)}} and
+        {{unbind_response.command_data}}
