@@ -1,5 +1,5 @@
 blueprint:
-  name: ZHA - IKEA Tradfri on/off switch
+  name: ZHA - IKEA Tradfri on/off switch binding backup
   description: |
     The prefered way to control your zigbee lights is
     with direct bindings between the controllers and
