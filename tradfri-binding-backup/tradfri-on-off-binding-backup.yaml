@@ -52,7 +52,7 @@ action:
     lights: !input lights
     remote: !input remote
     unbound_lights: []
-- delay: 00:00:01
+- delay: 00:00:01.50
 - choose:
   - conditions:
       - "{{ command == 'on' }}"
