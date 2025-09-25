@@ -1,0 +1,88 @@
+blueprint:
+  name: ZHA - IKEA Tradfri on/off switch
+  description: |
+    The prefered way to control your zigbee lights is
+    with direct bindings between the controllers and
+    the bulbs, however bindings may fail and this 
+    blueprint will notify you of the failure and
+    then issue turn on/off commands for the failed
+    devices - offering some redundancy
+    this does not (yet) support backup dimming
+    by default it then calls a script which can be
+    downloaded at which will try to repair the binding.
+  domain: automation
+  input:
+    remote:
+      name: Remote
+      description: The remote that will control the lights
+      selector:
+        device:
+          integration: zha
+          manufacturer: 'IKEA of Sweden'
+          model: 'TRADFRI on/off switch'
+    lights:
+      name: Lights
+      description: The lights to be controlled
+      selector:
+        entity:
+          domain: light
+          multiple: true
+    post_action:
+      name: Post-action
+      description: Optional service call to run after main actions and only if
+      default:
+        - action: script.wip_heal_zha_binding
+          metadata: {}
+          data:
+            bulb_field: "{{ unbound_lights | first }}"
+            lightswitch_field: "{{remote}}"
+      selector:
+        action: {}
+mode: restart
+trigger:
+- platform: event
+  event_type: zha_event
+  event_data:
+    device_id: !input 'remote'
+action:
+- variables:
+    command: "{{ trigger.event.data.command }}"
+    cluster_id: "{{ trigger.event.data.cluster_id }}"
+    endpoint_id: "{{ trigger.event.data.endpoint_id }}"
+    lights: !input lights
+    remote: !input remote
+    unbound_lights: []
+- delay: 00:00:01
+- choose:
+  - conditions:
+      - "{{ command == 'on' }}"
+      - "{{ cluster_id == 6 }}"
+      - "{{ endpoint_id == 1 }}"
+    sequence:
+      - variables:
+          unbound_lights: "{{ lights | select('is_state', 'off') | list }}"
+      - condition: template
+        value_template: "{{ unbound_lights != [] }}"
+      - service: light.turn_on
+        target:
+          entity_id: "{{ unbound_lights }}"
+  - conditions:
+      - "{{ command == 'off' }}"
+      - "{{ cluster_id == 6 }}"
+      - "{{ endpoint_id == 1 }}"
+    sequence:
+      - variables:
+          unbound_lights: "{{ lights | select('is_state', 'on') | list }}"
+      - condition: template
+        value_template: "{{ unbound_lights != [] }}"
+      - service: light.turn_off
+        target:
+          entity_id: "{{ unbound_lights }}"
+- condition: template
+  value_template: "{{unbound_lights != []}}"
+- service: persistent_notification.create
+  data:
+    title: Zigbee binding broken
+    message: "{{ device_attr(remote, 'name_by_user') }} and lights {{ unbound_lights | join(', ') }}"
+    notification_id: "lostbulb{{ unbound_lights | join('-') }}"
+- sequence: !input post_action
