@@ -8,10 +8,10 @@ This preserves:
 
 ## Required Repository Secrets
 
-Configure these under **Settings → Secrets and variables → Actions** in `HarvsG/HomeAssistant-Blueprints`:
+Configure these under **[Settings → Secrets and variables → Actions](https://github.com/HarvsG/HomeAssistant-Blueprints/settings/secrets/actions)**:
 
-| Secret Name | Purpose | How to Create |
+| Secret Name | Purpose | Status / How to Create |
 |---|---|---|
-| `GIST_TOKEN` | Updates your Gist mirrors via `PATCH /gists/{id}` | GitHub **Settings → Developer settings → Personal access tokens** → create a token with **`gist`** write permission. |
-| `DISCOURSE_USER_API_KEY` | Updates inline ```` ```yaml ```` blocks on `community.home-assistant.io` | Discourse encrypted User API Key (`read,write` scope). |
-| `DISCOURSE_USER_API_CLIENT_ID` | *(Optional)* Matching `client_id` for the Discourse User API Key | Set alongside `DISCOURSE_USER_API_KEY`. |
+| `GIST_TOKEN` | Updates your Gist mirrors via `PATCH /gists/{id}` | Create a **Fine-grained Personal Access Token** with only the **`Gists: Read and write`** account permission ([pre-filled creation link](https://github.com/settings/personal-access-tokens/new?name=HomeAssistant-Blueprints+Gist+Sync&description=Auto-sync+blueprints+from+HomeAssistant-Blueprints+to+Gist+mirrors&expires_in=none&gists=write)), then paste it into **[New repository secret](https://github.com/HarvsG/HomeAssistant-Blueprints/settings/secrets/actions/new)** named `GIST_TOKEN`. |
+| `DISCOURSE_USER_API_KEY` | Updates inline ```` ```yaml ```` blocks on `community.home-assistant.io` | Already configured via Discourse encrypted User API Key (`read,write` scope). |
+| `DISCOURSE_USER_API_CLIENT_ID` | Matching `client_id` for the Discourse User API Key | Already configured alongside `DISCOURSE_USER_API_KEY`. |
