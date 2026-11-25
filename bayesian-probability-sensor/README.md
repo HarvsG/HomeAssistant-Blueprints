@@ -12,6 +12,10 @@ A `template` sensor blueprint that exposes the numeric `probability` attribute (
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FHarvsG%2FHomeAssistant-Blueprints%2Fblob%2Fmain%2Fbayesian-probability-sensor%2Fbayesian_probability_sensor.yaml)
 
+> **Home Assistant `template` blueprint notes:**
+> 1. You must have at least one **Template** helper (UI or `template:` in `configuration.yaml`) loaded in Home Assistant before clicking **Import Blueprint** — otherwise HA hasn't registered the `template` blueprint domain yet and returns `Unsupported domain`.
+> 2. Once imported (to `/config/blueprints/template/HarvsG/bayesian_probability_sensor.yaml`), `template` blueprints do not appear in the **Settings → Automations & scenes → Blueprints** UI (which only lists `automation` and `script` domains); instantiate it in `configuration.yaml` below.
+
 ---
 
 ## Usage
