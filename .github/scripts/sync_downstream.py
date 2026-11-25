@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Sync blueprints, scripts, automations, and templates from this repo to legacy Gist & Forum mirrors.
 
-Preserves existing Home Assistant Community Forum import link counters and 'Re-import blueprint'
-compatibility while keeping this GitHub repository as the single source of truth.
+Includes pre-sync drift/conflict detection so out-of-band edits made directly to a Gist or Forum
+YAML block are never silently overwritten unless FORCE_OVERWRITE=true is explicitly passed.
 """
 
 from __future__ import annotations
 
+from datetime import datetime
+import difflib
 import json
 import os
 import re
@@ -51,10 +53,124 @@ FORUM_INLINE_MIRRORS: dict[str, tuple[int, int]] = {
 }
 
 YAML_FENCE_RE = re.compile(r"(```(?:yaml|yml)\n)(.*?)(\n```)", re.DOTALL)
+ZERO_SHA = "0" * 40
 
 
 class CloudflareChallengeError(RuntimeError):
     """Raised when Cloudflare serves an anti-bot challenge to a cloud runner IP."""
+
+
+def normalize_yaml(text: str) -> str:
+    return "\n".join(line.rstrip() for line in text.strip().splitlines())
+
+
+def format_diff(expected: str, actual_remote: str, expected_label: str, remote_label: str) -> str:
+    lines = list(
+        difflib.unified_diff(
+            expected.strip().splitlines(),
+            actual_remote.strip().splitlines(),
+            fromfile=expected_label,
+            tofile=remote_label,
+            n=2,
+            lineterm="",
+        )
+    )
+    return "\n    ".join(lines[:60]) + ("\n    ... (diff truncated)" if len(lines) > 60 else "")
+
+
+def git_file_at(rev: str, rel_path: str) -> str | None:
+    res = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "show", f"{rev}:{rel_path}"],
+        capture_output=True,
+        text=True,
+    )
+    return res.stdout if res.returncode == 0 else None
+
+
+def git_file_history(rel_path: str) -> tuple[datetime | None, set[str]]:
+    """Return (latest_commit_datetime, set_of_normalized_prior_contents) for rel_path."""
+    res = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "log", "--format=%H %cI", "--", rel_path],
+        capture_output=True,
+        text=True,
+    )
+    if res.returncode != 0 or not res.stdout.strip():
+        return None, set()
+    entries = [line.strip().split(" ", 1) for line in res.stdout.strip().splitlines() if " " in line]
+    head_dt = datetime.fromisoformat(entries[0][1])
+    prior_contents: set[str] = set()
+    for sha, _ in entries[1:]:
+        blob = git_file_at(sha, rel_path)
+        if blob is not None:
+            prior_contents.add(normalize_yaml(blob))
+    return head_dt, prior_contents
+
+
+def verify_target_not_modified_out_of_band(
+    *,
+    rel_path: str,
+    target_label: str,
+    remote_content: str,
+    remote_updated_at: datetime | None,
+    before_sha: str | None,
+    force_overwrite: bool,
+) -> tuple[bool, str]:
+    """Check if remote_content is safe to overwrite with current HEAD of rel_path.
+
+    Returns (is_safe, reason_message).
+    """
+    norm_remote = normalize_yaml(remote_content)
+
+    # Case A: Push event with a known pre-push commit SHA
+    if before_sha and before_sha != ZERO_SHA:
+        before_blob = git_file_at(before_sha, rel_path)
+        if before_blob is None:
+            # Newly added file in this push; remote shouldn't already have divergent content unless forced
+            if not norm_remote or force_overwrite:
+                return True, "new file"
+            diff = format_diff("", remote_content, f"repo:{before_sha[:7]}:{rel_path} (absent)", target_label)
+            return (
+                False,
+                f"{target_label} already has unexpected content before new file {rel_path} was synced:\n    {diff}",
+            )
+
+        norm_before = normalize_yaml(before_blob)
+        if norm_remote == norm_before:
+            return True, f"matches pre-push commit {before_sha[:7]}"
+
+        if force_overwrite:
+            return True, f"out-of-band change overridden by FORCE_OVERWRITE=true"
+
+        diff = format_diff(before_blob, remote_content, f"expected (repo {before_sha[:7]})", f"actual ({target_label})")
+        return (
+            False,
+            f"{target_label} was modified out-of-band (does not match pre-push commit {before_sha[:7]} of {rel_path}). "
+            f"Refusing to overwrite!\n    {diff}",
+        )
+
+    # Case B: Manual workflow_dispatch or local run without before_sha
+    head_dt, prior_contents = git_file_history(rel_path)
+    if norm_remote in prior_contents:
+        if remote_updated_at is not None and head_dt is not None and remote_updated_at > head_dt:
+            if force_overwrite:
+                return True, "out-of-band timestamp overridden by FORCE_OVERWRITE=true"
+            return (
+                False,
+                f"{target_label} was updated at {remote_updated_at.isoformat()} (after latest repo commit "
+                f"{head_dt.isoformat()} for {rel_path}). Refusing to overwrite!",
+            )
+        return True, "matches ancestor commit in git history"
+
+    if force_overwrite:
+        return True, "out-of-band change overridden by FORCE_OVERWRITE=true"
+
+    head_blob = (REPO_ROOT / rel_path).read_text(encoding="utf-8")
+    diff = format_diff(head_blob, remote_content, f"repo HEAD ({rel_path})", f"actual ({target_label})")
+    return (
+        False,
+        f"{target_label} contains changes not found in {rel_path}'s git history. "
+        f"Refusing to overwrite!\n    {diff}",
+    )
 
 
 def curl_json(method: str, url: str, headers_file: str | None = None, payload: dict | None = None) -> dict:
@@ -81,12 +197,13 @@ def curl_json(method: str, url: str, headers_file: str | None = None, payload: d
             os.remove(payload_file)
 
 
-def get_changed_files() -> set[str] | None:
+def get_changed_files(before_sha: str | None) -> set[str] | None:
     """On push events, return changed repo-relative paths; return None to check all files."""
     if os.environ.get("GITHUB_EVENT_NAME") != "push":
         return None
+    base = before_sha if (before_sha and before_sha != ZERO_SHA) else "HEAD~1"
     res = subprocess.run(
-        ["git", "-C", str(REPO_ROOT), "diff", "--name-only", "HEAD~1", "HEAD"],
+        ["git", "-C", str(REPO_ROOT), "diff", "--name-only", base, "HEAD"],
         capture_output=True,
         text=True,
     )
@@ -95,8 +212,15 @@ def get_changed_files() -> set[str] | None:
     return {line.strip() for line in res.stdout.splitlines() if line.strip()}
 
 
-def sync_gists(gist_token: str, dry_run: bool = False) -> None:
+def sync_gists(
+    gist_token: str,
+    *,
+    before_sha: str | None = None,
+    force_overwrite: bool = False,
+    dry_run: bool = False,
+) -> int:
     print("=== Syncing Gist Mirrors ===")
+    conflicts = 0
     fd, hdr_path = tempfile.mkstemp()
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -109,14 +233,33 @@ def sync_gists(gist_token: str, dry_run: bool = False) -> None:
 
         for rel_path, targets in GIST_MIRRORS.items():
             local_content = (REPO_ROOT / rel_path).read_text(encoding="utf-8")
+            norm_local = normalize_yaml(local_content)
             for gist_id, gist_fname in targets:
+                label = f"Gist {gist_id} ({gist_fname})"
                 gist = curl_json("GET", f"https://api.github.com/gists/{gist_id}", headers_file=hdr_path)
                 remote_content = gist.get("files", {}).get(gist_fname, {}).get("content", "")
-                if remote_content.rstrip() == local_content.rstrip():
-                    print(f"  [up-to-date] Gist {gist_id} ({gist_fname})")
+                if normalize_yaml(remote_content) == norm_local:
+                    print(f"  [up-to-date] {label}")
                     continue
+
+                updated_str = gist.get("updated_at")
+                remote_dt = datetime.fromisoformat(updated_str.replace("Z", "+00:00")) if updated_str else None
+                ok, reason = verify_target_not_modified_out_of_band(
+                    rel_path=rel_path,
+                    target_label=label,
+                    remote_content=remote_content,
+                    remote_updated_at=remote_dt,
+                    before_sha=before_sha,
+                    force_overwrite=force_overwrite,
+                )
+                if not ok:
+                    print(f"::error title=Out-of-band Gist edit detected::{label} has unmerged external changes.")
+                    print(f"  [CONFLICT] {reason}")
+                    conflicts += 1
+                    continue
+
                 if dry_run:
-                    print(f"  [would-update] Gist {gist_id} ({gist_fname}) from {rel_path}")
+                    print(f"  [would-update] {label} from {rel_path} ({reason})")
                     continue
                 curl_json(
                     "PATCH",
@@ -124,18 +267,22 @@ def sync_gists(gist_token: str, dry_run: bool = False) -> None:
                     headers_file=hdr_path,
                     payload={"files": {gist_fname: {"content": local_content}}},
                 )
-                print(f"  [updated] Gist {gist_id} ({gist_fname}) from {rel_path}")
+                print(f"  [updated] {label} from {rel_path} ({reason})")
     finally:
         if os.path.exists(hdr_path):
             os.remove(hdr_path)
+    return conflicts
 
 
 def sync_forum_posts(
     api_key: str,
+    *,
     client_id: str | None = None,
     changed_files: set[str] | None = None,
+    before_sha: str | None = None,
+    force_overwrite: bool = False,
     dry_run: bool = False,
-) -> None:
+) -> int:
     targets = {
         rel_path: ids
         for rel_path, ids in FORUM_INLINE_MIRRORS.items()
@@ -143,9 +290,10 @@ def sync_forum_posts(
     }
     if not targets:
         print("=== Syncing Forum Inline YAML Blocks ===\n  No inline-forum YAML files changed in this push; skipping.")
-        return
+        return 0
 
     print("=== Syncing Forum Inline YAML Blocks ===")
+    conflicts = 0
     fd, hdr_path = tempfile.mkstemp()
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -158,6 +306,7 @@ def sync_forum_posts(
         reason_suffix = f" (commit {commit_sha})" if commit_sha else ""
 
         for rel_path, (topic_id, post_id) in targets.items():
+            label = f"Forum topic #{topic_id} (post {post_id})"
             local_yaml = (REPO_ROOT / rel_path).read_text(encoding="utf-8").strip()
             try:
                 post = curl_json("GET", f"{FORUM_BASE}/posts/{post_id}.json", headers_file=hdr_path)
@@ -168,22 +317,39 @@ def sync_forum_posts(
                     f"{exc} Forum topic(s) {affected} were not synced automatically; "
                     f"re-run later or run .github/scripts/sync_downstream.py locally."
                 )
-                return
+                return conflicts
 
             raw = post.get("raw", "")
             matches = list(YAML_FENCE_RE.finditer(raw))
             if len(matches) != 1:
                 raise RuntimeError(
-                    f"Expected exactly 1 ```yaml fence in topic #{topic_id} (post {post_id}), found {len(matches)}"
+                    f"Expected exactly 1 ```yaml fence in {label}, found {len(matches)}"
                 )
             m = matches[0]
             current_yaml = m.group(2).strip()
-            if current_yaml == local_yaml:
-                print(f"  [up-to-date] Forum topic #{topic_id} (post {post_id})")
+            if normalize_yaml(current_yaml) == normalize_yaml(local_yaml):
+                print(f"  [up-to-date] {label}")
                 continue
+
+            # Note: post['updated_at'] also changes on prose-only edits, so pass None for remote_updated_at
+            # and rely on exact git-blob ancestry matching (or pre-push before_sha matching).
+            ok, reason = verify_target_not_modified_out_of_band(
+                rel_path=rel_path,
+                target_label=label,
+                remote_content=current_yaml,
+                remote_updated_at=None,
+                before_sha=before_sha,
+                force_overwrite=force_overwrite,
+            )
+            if not ok:
+                print(f"::error title=Out-of-band Forum YAML edit detected::{label} has unmerged external changes.")
+                print(f"  [CONFLICT] {reason}")
+                conflicts += 1
+                continue
+
             new_raw = raw[: m.start()] + m.group(1) + local_yaml + m.group(3) + raw[m.end() :]
             if dry_run:
-                print(f"  [would-update] Forum topic #{topic_id} (post {post_id}) from {rel_path}")
+                print(f"  [would-update] {label} from {rel_path} ({reason})")
                 continue
             try:
                 curl_json(
@@ -200,17 +366,20 @@ def sync_forum_posts(
             except CloudflareChallengeError as exc:
                 print(
                     f"::warning title=Cloudflare blocked GitHub runner IP::"
-                    f"{exc} Forum topic #{topic_id} could not be updated from this cloud runner IP."
+                    f"{exc} {label} could not be updated from this cloud runner IP."
                 )
-                return
-            print(f"  [updated] Forum topic #{topic_id} (post {post_id}) from {rel_path}")
+                return conflicts
+            print(f"  [updated] {label} from {rel_path} ({reason})")
     finally:
         if os.path.exists(hdr_path):
             os.remove(hdr_path)
+    return conflicts
 
 
 def main() -> int:
     dry_run = "--dry-run" in sys.argv
+    force_overwrite = "--force" in sys.argv or os.environ.get("FORCE_OVERWRITE", "false").strip().lower() == "true"
+    before_sha = os.environ.get("GITHUB_EVENT_BEFORE", "").strip() or None
     gist_token = os.environ.get("GIST_TOKEN", "").strip()
     discourse_key = os.environ.get("DISCOURSE_USER_API_KEY", "").strip()
     discourse_client_id = os.environ.get("DISCOURSE_USER_API_CLIENT_ID", "").strip() or None
@@ -220,18 +389,39 @@ def main() -> int:
         print("Notice: Neither GIST_TOKEN nor DISCOURSE_USER_API_KEY is set; nothing to sync.")
         return 0
 
+    conflicts = 0
     if gist_token:
-        sync_gists(gist_token, dry_run=dry_run)
+        conflicts += sync_gists(
+            gist_token,
+            before_sha=before_sha if os.environ.get("GITHUB_EVENT_NAME") == "push" else None,
+            force_overwrite=force_overwrite,
+            dry_run=dry_run,
+        )
     else:
         print("Skipping Gist sync (GIST_TOKEN not configured).")
 
     if discourse_key and sync_forum_flag:
-        changed_files = get_changed_files()
-        sync_forum_posts(discourse_key, client_id=discourse_client_id, changed_files=changed_files, dry_run=dry_run)
+        changed_files = get_changed_files(before_sha)
+        conflicts += sync_forum_posts(
+            discourse_key,
+            client_id=discourse_client_id,
+            changed_files=changed_files,
+            before_sha=before_sha if os.environ.get("GITHUB_EVENT_NAME") == "push" else None,
+            force_overwrite=force_overwrite,
+            dry_run=dry_run,
+        )
     elif not sync_forum_flag:
         print("Skipping Forum sync (disabled via workflow input).")
     else:
         print("Skipping Forum sync (DISCOURSE_USER_API_KEY not configured).")
+
+    if conflicts:
+        print(
+            f"\nAborted {conflicts} target(s) due to out-of-band modifications! "
+            "Port those external changes into this repository first, or run the workflow manually "
+            "with 'force_overwrite: true' if you intend to overwrite them."
+        )
+        return 1
 
     return 0
 

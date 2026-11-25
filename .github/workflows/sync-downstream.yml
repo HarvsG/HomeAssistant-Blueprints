@@ -14,6 +14,10 @@ on:
         description: "Also check/sync inline YAML blocks on community.home-assistant.io"
         type: boolean
         default: true
+      force_overwrite:
+        description: "Force overwrite even if target Gist or Forum YAML was edited out-of-band"
+        type: boolean
+        default: false
 
 concurrency:
   group: sync-downstream
@@ -27,10 +31,10 @@ jobs:
     name: Sync YAML to Gists & HA Forum
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout repository (full history for conflict check)
         uses: actions/checkout@v7
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Sync downstream mirrors
         env:
@@ -39,5 +43,7 @@ jobs:
           DISCOURSE_USER_API_CLIENT_ID: ${{ secrets.DISCOURSE_USER_API_CLIENT_ID }}
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
           SYNC_FORUM: ${{ inputs.sync_forum != false }}
+          FORCE_OVERWRITE: ${{ inputs.force_overwrite == true }}
         run: python3 .github/scripts/sync_downstream.py
