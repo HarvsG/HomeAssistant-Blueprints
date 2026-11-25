@@ -1,0 +1,34 @@
+name: Sync Mirrors (Gists & Forum)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*.yaml"
+      - ".github/scripts/sync_downstream.py"
+      - ".github/workflows/sync-downstream.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: sync-downstream
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Sync YAML to Gists & HA Forum
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync downstream mirrors
+        env:
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          DISCOURSE_USER_API_KEY: ${{ secrets.DISCOURSE_USER_API_KEY }}
+          DISCOURSE_USER_API_CLIENT_ID: ${{ secrets.DISCOURSE_USER_API_CLIENT_ID }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: python3 .github/scripts/sync_downstream.py
