@@ -9,6 +9,11 @@ on:
       - ".github/scripts/sync_downstream.py"
       - ".github/workflows/sync-downstream.yml"
   workflow_dispatch:
+    inputs:
+      sync_forum:
+        description: "Also check/sync inline YAML blocks on community.home-assistant.io"
+        type: boolean
+        default: true
 
 concurrency:
   group: sync-downstream
@@ -24,6 +29,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
 
       - name: Sync downstream mirrors
         env:
@@ -31,4 +38,6 @@ jobs:
           DISCOURSE_USER_API_KEY: ${{ secrets.DISCOURSE_USER_API_KEY }}
           DISCOURSE_USER_API_CLIENT_ID: ${{ secrets.DISCOURSE_USER_API_CLIENT_ID }}
           GITHUB_SHA: ${{ github.sha }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          SYNC_FORUM: ${{ inputs.sync_forum != false }}
         run: python3 .github/scripts/sync_downstream.py

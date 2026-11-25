@@ -53,6 +53,10 @@ FORUM_INLINE_MIRRORS: dict[str, tuple[int, int]] = {
 YAML_FENCE_RE = re.compile(r"(```(?:yaml|yml)\n)(.*?)(\n```)", re.DOTALL)
 
 
+class CloudflareChallengeError(RuntimeError):
+    """Raised when Cloudflare serves an anti-bot challenge to a cloud runner IP."""
+
+
 def curl_json(method: str, url: str, headers_file: str | None = None, payload: dict | None = None) -> dict:
     cmd = ["curl", "-sS", "-X", method, "-w", "\n%{http_code}"]
     if headers_file:
@@ -67,12 +71,28 @@ def curl_json(method: str, url: str, headers_file: str | None = None, payload: d
         cmd.append(url)
         res = subprocess.run(cmd, capture_output=True, text=True, check=True)
         body, _, status = res.stdout.rpartition("\n")
+        if status == "403" and ("Just a moment..." in body or "cf-mitigated" in body):
+            raise CloudflareChallengeError(f"Cloudflare anti-bot challenge gated {url} from this runner IP.")
         if not status.startswith("2"):
             raise RuntimeError(f"HTTP {status} for {method} {url}: {body[:300]}")
         return json.loads(body) if body.strip() else {}
     finally:
         if payload_file and os.path.exists(payload_file):
             os.remove(payload_file)
+
+
+def get_changed_files() -> set[str] | None:
+    """On push events, return changed repo-relative paths; return None to check all files."""
+    if os.environ.get("GITHUB_EVENT_NAME") != "push":
+        return None
+    res = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "diff", "--name-only", "HEAD~1", "HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    if res.returncode != 0:
+        return None
+    return {line.strip() for line in res.stdout.splitlines() if line.strip()}
 
 
 def sync_gists(gist_token: str, dry_run: bool = False) -> None:
@@ -110,7 +130,21 @@ def sync_gists(gist_token: str, dry_run: bool = False) -> None:
             os.remove(hdr_path)
 
 
-def sync_forum_posts(api_key: str, client_id: str | None = None, dry_run: bool = False) -> None:
+def sync_forum_posts(
+    api_key: str,
+    client_id: str | None = None,
+    changed_files: set[str] | None = None,
+    dry_run: bool = False,
+) -> None:
+    targets = {
+        rel_path: ids
+        for rel_path, ids in FORUM_INLINE_MIRRORS.items()
+        if changed_files is None or rel_path in changed_files
+    }
+    if not targets:
+        print("=== Syncing Forum Inline YAML Blocks ===\n  No inline-forum YAML files changed in this push; skipping.")
+        return
+
     print("=== Syncing Forum Inline YAML Blocks ===")
     fd, hdr_path = tempfile.mkstemp()
     try:
@@ -123,9 +157,19 @@ def sync_forum_posts(api_key: str, client_id: str | None = None, dry_run: bool =
         commit_sha = os.environ.get("GITHUB_SHA", "")[:7]
         reason_suffix = f" (commit {commit_sha})" if commit_sha else ""
 
-        for rel_path, (topic_id, post_id) in FORUM_INLINE_MIRRORS.items():
+        for rel_path, (topic_id, post_id) in targets.items():
             local_yaml = (REPO_ROOT / rel_path).read_text(encoding="utf-8").strip()
-            post = curl_json("GET", f"{FORUM_BASE}/posts/{post_id}.json", headers_file=hdr_path)
+            try:
+                post = curl_json("GET", f"{FORUM_BASE}/posts/{post_id}.json", headers_file=hdr_path)
+            except CloudflareChallengeError as exc:
+                affected = ", ".join(f"#{tid}" for tid, _ in targets.values())
+                print(
+                    f"::warning title=Cloudflare blocked GitHub runner IP::"
+                    f"{exc} Forum topic(s) {affected} were not synced automatically; "
+                    f"re-run later or run .github/scripts/sync_downstream.py locally."
+                )
+                return
+
             raw = post.get("raw", "")
             matches = list(YAML_FENCE_RE.finditer(raw))
             if len(matches) != 1:
@@ -141,17 +185,24 @@ def sync_forum_posts(api_key: str, client_id: str | None = None, dry_run: bool =
             if dry_run:
                 print(f"  [would-update] Forum topic #{topic_id} (post {post_id}) from {rel_path}")
                 continue
-            curl_json(
-                "PUT",
-                f"{FORUM_BASE}/posts/{post_id}.json",
-                headers_file=hdr_path,
-                payload={
-                    "post": {
-                        "raw": new_raw,
-                        "edit_reason": f"Auto-synced from HarvsG/HomeAssistant-Blueprints{reason_suffix}",
-                    }
-                },
-            )
+            try:
+                curl_json(
+                    "PUT",
+                    f"{FORUM_BASE}/posts/{post_id}.json",
+                    headers_file=hdr_path,
+                    payload={
+                        "post": {
+                            "raw": new_raw,
+                            "edit_reason": f"Auto-synced from HarvsG/HomeAssistant-Blueprints{reason_suffix}",
+                        }
+                    },
+                )
+            except CloudflareChallengeError as exc:
+                print(
+                    f"::warning title=Cloudflare blocked GitHub runner IP::"
+                    f"{exc} Forum topic #{topic_id} could not be updated from this cloud runner IP."
+                )
+                return
             print(f"  [updated] Forum topic #{topic_id} (post {post_id}) from {rel_path}")
     finally:
         if os.path.exists(hdr_path):
@@ -163,6 +214,7 @@ def main() -> int:
     gist_token = os.environ.get("GIST_TOKEN", "").strip()
     discourse_key = os.environ.get("DISCOURSE_USER_API_KEY", "").strip()
     discourse_client_id = os.environ.get("DISCOURSE_USER_API_CLIENT_ID", "").strip() or None
+    sync_forum_flag = os.environ.get("SYNC_FORUM", "true").strip().lower() != "false"
 
     if not gist_token and not discourse_key:
         print("Notice: Neither GIST_TOKEN nor DISCOURSE_USER_API_KEY is set; nothing to sync.")
@@ -173,8 +225,11 @@ def main() -> int:
     else:
         print("Skipping Gist sync (GIST_TOKEN not configured).")
 
-    if discourse_key:
-        sync_forum_posts(discourse_key, client_id=discourse_client_id, dry_run=dry_run)
+    if discourse_key and sync_forum_flag:
+        changed_files = get_changed_files()
+        sync_forum_posts(discourse_key, client_id=discourse_client_id, changed_files=changed_files, dry_run=dry_run)
+    elif not sync_forum_flag:
+        print("Skipping Forum sync (disabled via workflow input).")
     else:
         print("Skipping Forum sync (DISCOURSE_USER_API_KEY not configured).")
 
