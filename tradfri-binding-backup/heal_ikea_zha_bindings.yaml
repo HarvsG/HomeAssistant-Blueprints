@@ -39,7 +39,7 @@ sequence:
       removed: "{{unbind_response.result.removed}}"
       errors: "{{unbind_response.errors}}"
       target_device_id: "{{device_id(unbind_response.command_data)}}"
-      target_device_iee: >-
+      target_device_ieee: >-
         {{ device_attr(device_id(unbind_response.command_data), 'identifiers') |
         list | first | last }}
       skipped_ieees: >-
