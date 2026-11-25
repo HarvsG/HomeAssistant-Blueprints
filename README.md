@@ -2,6 +2,8 @@
 
 A collection of Home Assistant **blueprints**, **scripts**, **automations**, and **templates** created by [@HarvsG](https://github.com/HarvsG), consolidated with full edit history from the [Home Assistant Community Forum](https://community.home-assistant.io/u/harvsg/activity/topics) and [GitHub Gists](https://gist.github.com/HarvsG).
 
+> **Support & Contributions:** GitHub Issues are disabled on this repository — please direct questions, feedback, and bug reports to the corresponding **[Home Assistant Community Forum](https://community.home-assistant.io/u/harvsg/activity/topics)** thread linked in the tables below. **Pull requests are welcome!**
+
 ---
 
 ## Blueprints (One-Click Import)
