@@ -2,6 +2,8 @@ blueprint:
   name: Toggle Scenes
   description: Trigger this automation from another automation using This will allow you to use a single trigger to toggle a scene on or off. A timeout variable is given, after which the trigger will activate the scene irrespective of the state of the last toggle.
   domain: automation
+  author: HarvsG
+  source_url: https://github.com/HarvsG/HomeAssistant-Blueprints/blob/main/toggle-scene/toggle-scene.yaml
   input:
     scene_input:
       name: Scene to be toggled

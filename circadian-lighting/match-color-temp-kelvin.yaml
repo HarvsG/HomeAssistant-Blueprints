@@ -45,7 +45,8 @@ blueprint:
           entity_id: '{{trigger.entity_id}}'
         alias: Default - Set light to its original brightness, don't use brightness
           1 as it causes issues with some bulbs
-  source_url: https://gist.github.com/HarvsG/cc86381dc99169159d6d4cd870c36e46
+  author: HarvsG
+  source_url: https://github.com/HarvsG/HomeAssistant-Blueprints/blob/main/circadian-lighting/match-color-temp-kelvin.yaml
 variables:
   target_lights: !input target_lights
   target_on_lights: '{{states.light | selectattr(''state'',''eq'',''on'') | selectattr(''attributes.supported_color_modes'',''match'',".*color_temp.*")

@@ -6,6 +6,7 @@ blueprint:
   communication issues.'
   domain: script
   author: HarvsG
+  source_url: https://github.com/HarvsG/HomeAssistant-Blueprints/blob/main/tradfri-binding-backup/heal_ikea_zha_bindings.yaml
 mode: single
 fields:
   lightswitch_field:

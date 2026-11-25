@@ -3,7 +3,8 @@ blueprint:
   name: Numeric probability from a Bayesian sensor
   description: Creates a sensor which holds the probability of a Bayesian binary sensor
   domain: template
-  source_url: https://gist.github.com/HarvsG/6fff58238fa7b2f8217d9326f6bc997f # used for updates
+  author: HarvsG
+  source_url: https://github.com/HarvsG/HomeAssistant-Blueprints/blob/main/bayesian-probability-sensor/bayesian_probability_sensor.yaml
   input:
     original_entity:
       name: Bayesian binary sensor

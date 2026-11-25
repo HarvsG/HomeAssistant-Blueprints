@@ -2,6 +2,8 @@ blueprint:
   name: Match Outside Colour Temperature
   description: When a light turns on or the sun elevation changes match the outside colour temperature. It will apply to any bulb that supports color temperature. It triggers whenever a bulb turns on, on sun elevation changes and every 5 minutes.
   domain: automation
+  author: HarvsG
+  source_url: https://github.com/HarvsG/HomeAssistant-Blueprints/blob/main/circadian-lighting/match-color-temp-mireds.yaml
   input:
     target_lights:
       name: Lights

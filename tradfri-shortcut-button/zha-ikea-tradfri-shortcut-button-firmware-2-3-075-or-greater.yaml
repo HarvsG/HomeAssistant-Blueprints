@@ -1,7 +1,8 @@
 blueprint:
   name: ZHA - IKEA Tradfri Shortcut button
   description: Control anything with the ikea shortcut button
-  source_url: https://https://community.home-assistant.io/t/zha-ikea-tradfri-shortcut-button-firmware-2-3-075-or-greater/402565
+  author: HarvsG
+  source_url: https://github.com/HarvsG/HomeAssistant-Blueprints/blob/main/tradfri-shortcut-button/zha-ikea-tradfri-shortcut-button-firmware-2-3-075-or-greater.yaml
   domain: automation
   input:
     shortcut_button:

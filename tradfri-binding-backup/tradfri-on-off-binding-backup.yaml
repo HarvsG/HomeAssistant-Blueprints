@@ -9,9 +9,11 @@ blueprint:
     devices - offering some redundancy
     this does not (yet) support backup dimming
     by default it then calls a script which can be
-    downloaded at https://gist.github.com/HarvsG/b1508cc130d514ef690418a612ee9d47
+    downloaded at https://github.com/HarvsG/HomeAssistant-Blueprints/blob/main/tradfri-binding-backup/heal_ikea_zha_bindings.yaml
     which will try to repair the binding.
   domain: automation
+  author: HarvsG
+  source_url: https://github.com/HarvsG/HomeAssistant-Blueprints/blob/main/tradfri-binding-backup/tradfri-on-off-binding-backup.yaml
   input:
     remote:
       name: Remote
